@@ -13,30 +13,45 @@ npm install
 npm run dev
 ```
 
-## AI setup (required for your own photos)
+## AI setup
 
-This is a pure client-side prototype — no backend, no database. Recipe
-generation calls the Anthropic API **directly from the browser** using an API
-key you provide yourself:
+**On Vercel (production):** the app calls a serverless proxy at
+`api/generate-recipe.js`, which holds the site owner's Anthropic key
+server-side as the `ANTHROPIC_API_KEY` environment variable — visitors get
+real recipe generation with no key of their own. Set it in the Vercel
+dashboard (Project → Settings → Environment Variables), never by committing
+it to the repo or pasting it anywhere client-side. If that shared key runs
+out of credits, the app detects Anthropic's "credit balance is too low"
+error and automatically prompts each visitor to add their own key instead
+(Settings → paste a personal `sk-ant-…` key, stored only in their browser's
+`localStorage`).
 
-1. Open the app, tap the gear icon on the Upload screen.
-2. Paste an Anthropic API key (starts with `sk-ant-`).
-3. It's saved to `localStorage` only — never sent anywhere but Anthropic's API.
+**Locally (`npm run dev`) and on static hosts (e.g. GitHub Pages):** there's
+no serverless function to call — `vite dev` doesn't run `api/`, and GitHub
+Pages can't run server code at all. Both fall back straight to the
+bring-your-own-key flow: tap the gear icon, paste a personal Anthropic key.
 
-Without a key, the 4 example dishes on the Upload screen still work end-to-end
-(they use pre-baked recipe data so the demo has content immediately), but your
-own photos will show a soft error asking you to add a key.
+Without any key at all, the 4 example dishes on the Upload screen still work
+end-to-end everywhere (pre-baked recipe data, no API call), so the demo
+always has content.
 
-**Note:** shipping an API key to the browser is fine for a local demo, not for
-a real product — anyone who opens devtools can see it. A production version
-would proxy this call through a server.
+**Security note:** never ship a real API key inside client-side code (env
+vars prefixed for Vite, hardcoded strings, etc.) — anyone can read it via
+devtools. The serverless function is the only safe place for it, since that
+code runs on Vercel's servers and its environment variables are never sent
+to the browser.
 
 ## How it's put together
 
-- `src/lib/llm.ts` — `generateRecipeFromPhoto(file, apiKey)`, an isolated
-  function that sends the photo to a vision-capable Claude model via the
-  Messages API (tool-use, so the response comes back as structured JSON) and
-  parses/sanitizes the result into a `Recipe`.
+- `api/generate-recipe.js` — Vercel serverless function; proxies the vision
+  call to Anthropic using the shared `ANTHROPIC_API_KEY` env var so it never
+  reaches the browser. Returns a `credits_exhausted` flag the client can key
+  off of when the owner's balance runs low.
+- `src/lib/llm.ts` — `generateRecipeFromPhoto(file, apiKey, options)`, an
+  isolated function that tries the shared serverless proxy first, then falls
+  back to calling the Anthropic Messages API directly from the browser with
+  a visitor-supplied key (tool-use, so the response comes back as structured
+  JSON) and parses/sanitizes the result into a `Recipe`.
 - `src/data/groceryPrices.ts` + `src/lib/cost.ts` — a hardcoded mock grocery
   price dataset used to estimate cost-per-serving from the ingredient list,
   rather than trusting the model's pricing.

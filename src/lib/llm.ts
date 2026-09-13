@@ -2,8 +2,15 @@ import type { Difficulty, Recipe } from "../types";
 
 const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 const ANTHROPIC_VERSION = "2023-06-01";
+const SHARED_PROXY_ENDPOINT = "/api/generate-recipe";
 
 export class RecipeGenerationError extends Error {}
+
+/** The site owner's shared key (via the serverless proxy) ran out of credits. */
+class SharedKeyExhaustedError extends Error {}
+
+/** No serverless backend is reachable at all (e.g. a static host like GitHub Pages). */
+class ProxyUnavailableError extends Error {}
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -61,18 +68,48 @@ function sanitizeRecipe(raw: unknown): Recipe {
 }
 
 /**
- * Sends a food photo to a vision-capable Claude model and asks for a
- * structured recipe back. Runs directly from the browser (no backend) using
- * a user-supplied API key — fine for a local prototype, not for production,
- * since the key is visible to anyone inspecting network requests.
+ * Tries the site's shared serverless proxy first (api/generate-recipe),
+ * which holds the owner's API key server-side. Only exists on hosts that
+ * run serverless functions (e.g. Vercel) — on a static host like GitHub
+ * Pages this 404s immediately and we fall back to a visitor-supplied key.
  */
-export async function generateRecipeFromPhoto(imageFile: File, apiKey: string): Promise<Recipe> {
+async function generateViaSharedProxy(base64Data: string, mediaType: string): Promise<Recipe> {
+  let response: Response;
+  try {
+    response = await fetch(SHARED_PROXY_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ imageBase64: base64Data, mediaType }),
+    });
+  } catch {
+    throw new ProxyUnavailableError("Shared AI service isn't reachable.");
+  }
+
+  if (response.status === 404 || response.status === 405) {
+    throw new ProxyUnavailableError("No shared AI service is configured here.");
+  }
+
+  let payload: { recipe?: unknown; error?: string; message?: string };
+  try {
+    payload = await response.json();
+  } catch {
+    throw new ProxyUnavailableError("Shared AI service returned an unexpected response.");
+  }
+
+  if (!response.ok) {
+    if (payload.error === "credits_exhausted") {
+      throw new SharedKeyExhaustedError(payload.message ?? "The shared AI credits have run out.");
+    }
+    throw new ProxyUnavailableError(payload.message ?? "The shared AI service hit an error.");
+  }
+
+  return sanitizeRecipe(payload.recipe);
+}
+
+async function generateViaDirectFetch(base64Data: string, mediaType: string, apiKey: string): Promise<Recipe> {
   if (!apiKey.trim()) {
     throw new RecipeGenerationError("Add your Anthropic API key in Settings first.");
   }
-
-  const base64Data = await fileToBase64(imageFile);
-  const mediaType = imageFile.type || "image/jpeg";
 
   let response: Response;
   try {
@@ -162,4 +199,45 @@ export async function generateRecipeFromPhoto(imageFile: File, apiKey: string): 
   }
 
   return sanitizeRecipe(toolUse.input);
+}
+
+interface GenerateOptions {
+  /** Called once if the shared/owner key turns out to be exhausted, so the UI can remember this and prompt for a personal key from then on. */
+  onSharedKeyExhausted?: () => void;
+}
+
+/**
+ * Sends a food photo to a vision-capable Claude model and asks for a
+ * structured recipe back. Tries the site's shared serverless proxy first
+ * (no visitor key needed) and falls back to a visitor-supplied API key —
+ * calling Anthropic directly from the browser — if the shared proxy is
+ * unavailable (e.g. a static host) or its credits have run out.
+ */
+export async function generateRecipeFromPhoto(
+  imageFile: File,
+  apiKey: string,
+  options: GenerateOptions = {}
+): Promise<Recipe> {
+  const base64Data = await fileToBase64(imageFile);
+  const mediaType = imageFile.type || "image/jpeg";
+
+  try {
+    return await generateViaSharedProxy(base64Data, mediaType);
+  } catch (error) {
+    if (error instanceof SharedKeyExhaustedError) {
+      options.onSharedKeyExhausted?.();
+      if (!apiKey.trim()) {
+        throw new RecipeGenerationError(
+          "This site's shared AI credits have run out. Add your own Anthropic API key in Settings to keep generating recipes."
+        );
+      }
+    } else if (!(error instanceof ProxyUnavailableError) && !apiKey.trim()) {
+      const message = error instanceof Error ? error.message : "The shared AI service hit a snag.";
+      throw new RecipeGenerationError(`${message} Add your own Anthropic API key in Settings to continue.`);
+    }
+    // ProxyUnavailableError (no backend here, e.g. GitHub Pages) falls
+    // through silently to the existing bring-your-own-key flow.
+  }
+
+  return generateViaDirectFetch(base64Data, mediaType, apiKey);
 }

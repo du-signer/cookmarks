@@ -15,7 +15,7 @@ function isCookmarkLike(value: unknown): value is Cookmark {
 }
 
 export function ApiKeySettings({ onClose }: { onClose: () => void }) {
-  const { apiKey, setApiKey, cookmarks, importCookmarks } = useCookmarksStore();
+  const { apiKey, setApiKey, sharedKeyExhausted, cookmarks, importCookmarks } = useCookmarksStore();
   const [draft, setDraft] = useState(apiKey);
   const [importMessage, setImportMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -61,10 +61,12 @@ export function ApiKeySettings({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="Settings" onClose={onClose}>
       <p className="text-sm text-ink-soft">
-        Cookmarks has no server of its own — recipe generation calls the Anthropic API directly from your
-        browser using your own key. It's stored only in this browser's local storage.
+        {sharedKeyExhausted
+          ? "This site's shared AI credits have run out. Add your own Anthropic API key below to keep generating recipes from your own photos."
+          : "Recipe generation uses this site's shared Anthropic key by default — you don't need to add your own. If that ever runs out, add a personal key here as a backup."}{" "}
+        A key you add is stored only in this browser's local storage.
       </p>
-      <label className="mt-4 block text-sm font-medium text-ink">Anthropic API key</label>
+      <label className="mt-4 block text-sm font-medium text-ink">Your own Anthropic API key (optional)</label>
       <input
         type="password"
         value={draft}

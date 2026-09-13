@@ -19,6 +19,9 @@ interface CookmarksStore {
   apiKey: string;
   setApiKey: (key: string) => void;
 
+  sharedKeyExhausted: boolean;
+  setSharedKeyExhausted: (value: boolean) => void;
+
   selectedForCooking: string[];
   setSelectedForCooking: (ids: string[]) => void;
 
@@ -47,6 +50,7 @@ export function CookmarksProvider({ children }: { children: ReactNode }) {
   const [cookmarks, setCookmarks] = useLocalStorage<Cookmark[]>("cookmarks:list", SEED_COOKMARKS);
   const [fridgeItems, setFridgeItems] = useLocalStorage<string[]>("cookmarks:fridge", []);
   const [apiKey, setApiKey] = useLocalStorage<string>("cookmarks:apiKey", "");
+  const [sharedKeyExhausted, setSharedKeyExhausted] = useLocalStorage<boolean>("cookmarks:sharedKeyExhausted", false);
   const [selectedForCooking, setSelectedForCooking] = useLocalStorage<string[]>("cookmarks:selected", []);
   const [groceryList, setGroceryList] = useLocalStorage<GroceryItem[]>("cookmarks:grocery", []);
 
@@ -102,13 +106,29 @@ export function CookmarksProvider({ children }: { children: ReactNode }) {
       apiKey,
       setApiKey,
 
+      sharedKeyExhausted,
+      setSharedKeyExhausted,
+
       selectedForCooking,
       setSelectedForCooking,
 
       groceryList,
       setGroceryList,
     }),
-    [cookmarks, fridgeItems, apiKey, selectedForCooking, groceryList, setCookmarks, setFridgeItems, setApiKey, setSelectedForCooking, setGroceryList]
+    [
+      cookmarks,
+      fridgeItems,
+      apiKey,
+      sharedKeyExhausted,
+      selectedForCooking,
+      groceryList,
+      setCookmarks,
+      setFridgeItems,
+      setApiKey,
+      setSharedKeyExhausted,
+      setSelectedForCooking,
+      setGroceryList,
+    ]
   );
 
   return <CookmarksContext.Provider value={value}>{children}</CookmarksContext.Provider>;

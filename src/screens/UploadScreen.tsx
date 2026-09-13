@@ -22,7 +22,7 @@ const LOADING_MESSAGES = [
 
 export function UploadScreen() {
   const navigate = useNavigate();
-  const { cookmarks, addCookmark, apiKey } = useCookmarksStore();
+  const { cookmarks, addCookmark, apiKey, sharedKeyExhausted, setSharedKeyExhausted } = useCookmarksStore();
   const recentCookmarks = cookmarks.slice(0, 6);
   const hasCookmarks = recentCookmarks.length > 0;
   const [state, setState] = useState<ProcessingState>({ status: "idle" });
@@ -35,7 +35,9 @@ export function UploadScreen() {
     setState({ status: "loading", photo });
     retryRef.current = () => handleRealPhoto(file);
     try {
-      const recipe = await generateRecipeFromPhoto(file, apiKey);
+      const recipe = await generateRecipeFromPhoto(file, apiKey, {
+        onSharedKeyExhausted: () => setSharedKeyExhausted(true),
+      });
       setState({ status: "success", photo, recipe });
       setRecipeDraft(recipe);
     } catch (error) {
@@ -128,11 +130,14 @@ export function UploadScreen() {
             </div>
           </div>
 
-          {!apiKey && (
+          {sharedKeyExhausted && !apiKey && (
             <p className="rounded-xl bg-lavender-soft px-4 py-3 text-sm text-[#4a3f63]">
-              Add your Anthropic API key in <button onClick={() => setShowSettings(true)} className="underline underline-offset-2">Settings</button> to
-              generate recipes from your own photos.
-              {hasCookmarks ? "" : " The example dishes above work without one."}
+              This site's shared AI credits have run out. Add your own Anthropic API key in{" "}
+              <button onClick={() => setShowSettings(true)} className="underline underline-offset-2">
+                Settings
+              </button>{" "}
+              to keep generating recipes from your own photos.
+              {hasCookmarks ? "" : " The example dishes above still work without one."}
             </p>
           )}
         </div>

@@ -10,7 +10,8 @@ import type { Recipe } from "../types";
 export function CookmarkDetailScreen() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { cookmarks, updateCookmarkRecipe, updateCookmarkPhoto, deleteCookmark, apiKey } = useCookmarksStore();
+  const { cookmarks, updateCookmarkRecipe, updateCookmarkPhoto, deleteCookmark, apiKey, setSharedKeyExhausted } =
+    useCookmarksStore();
   const cookmark = cookmarks.find((c) => c.id === id);
 
   const [isReprocessing, setIsReprocessing] = useState(false);
@@ -33,7 +34,9 @@ export function CookmarkDetailScreen() {
     const photo = await resizeImageToDataUrl(file);
     setIsReprocessing(true);
     try {
-      const recipe = await generateRecipeFromPhoto(file, apiKey);
+      const recipe = await generateRecipeFromPhoto(file, apiKey, {
+        onSharedKeyExhausted: () => setSharedKeyExhausted(true),
+      });
       updateCookmarkPhoto(cookmark!.id, photo, false);
       updateCookmarkRecipe(cookmark!.id, recipe);
     } catch (error) {
