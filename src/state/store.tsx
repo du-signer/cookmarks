@@ -2,6 +2,7 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { computeCostPerServing } from "../lib/cost";
 import { generateId } from "../lib/id";
+import { SEED_COOKMARKS } from "../data/seedCookmarks";
 import type { Cookmark, Recipe } from "../types";
 
 interface CookmarksStore {
@@ -43,7 +44,7 @@ export { PLACEHOLDER_PHOTO };
 const CookmarksContext = createContext<CookmarksStore | null>(null);
 
 export function CookmarksProvider({ children }: { children: ReactNode }) {
-  const [cookmarks, setCookmarks] = useLocalStorage<Cookmark[]>("cookmarks:list", []);
+  const [cookmarks, setCookmarks] = useLocalStorage<Cookmark[]>("cookmarks:list", SEED_COOKMARKS);
   const [fridgeItems, setFridgeItems] = useLocalStorage<string[]>("cookmarks:fridge", []);
   const [apiKey, setApiKey] = useLocalStorage<string>("cookmarks:apiKey", "");
   const [selectedForCooking, setSelectedForCooking] = useLocalStorage<string[]>("cookmarks:selected", []);
