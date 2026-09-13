@@ -130,14 +130,27 @@ export function UploadScreen() {
             </div>
           </div>
 
-          {sharedKeyExhausted && !apiKey && (
+          {!apiKey && (
             <p className="rounded-xl bg-lavender-soft px-4 py-3 text-sm text-[#4a3f63]">
-              This site's shared AI credits have run out. Add your own Anthropic API key in{" "}
-              <button onClick={() => setShowSettings(true)} className="underline underline-offset-2">
-                Settings
-              </button>{" "}
-              to keep generating recipes from your own photos.
-              {hasCookmarks ? "" : " The example dishes above still work without one."}
+              {sharedKeyExhausted ? (
+                <>
+                  This site's shared AI credits have run out. Add your own Anthropic API key in{" "}
+                  <button onClick={() => setShowSettings(true)} className="underline underline-offset-2">
+                    Settings
+                  </button>{" "}
+                  to keep generating recipes from your own photos.
+                </>
+              ) : (
+                <>
+                  Recipes from your own photos use this site's shared AI key automatically — no setup
+                  needed. If that's ever unavailable, add your own key in{" "}
+                  <button onClick={() => setShowSettings(true)} className="underline underline-offset-2">
+                    Settings
+                  </button>{" "}
+                  as a backup.
+                </>
+              )}
+              {hasCookmarks ? "" : " The example dishes above always work without one."}
             </p>
           )}
         </div>
