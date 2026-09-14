@@ -1,20 +1,55 @@
 import { useEffect, useState } from "react";
 
 const DURATION = 3500; // keep in sync with the cm-splash keyframes in index.css
+const FONT_WAIT_TIMEOUT = 400; // don't stall the splash on a slow connection
 
 export function Splash({ onDone }: { onDone: () => void }) {
   const [gone, setGone] = useState(false);
+  // Waiting for Fraunces avoids a font-swap reflow partway through the
+  // blur/scale animation — most noticeable on slower mobile connections,
+  // where the fallback serif would otherwise render first and visibly
+  // jump to Fraunces mid-animation.
+  const [fontReady, setFontReady] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    const fallback = setTimeout(() => {
+      if (!cancelled) setFontReady(true);
+    }, FONT_WAIT_TIMEOUT);
+
+    if (typeof document !== "undefined" && "fonts" in document) {
+      document.fonts
+        .load("52px Fraunces")
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) {
+            clearTimeout(fallback);
+            setFontReady(true);
+          }
+        });
+    }
+
+    return () => {
+      cancelled = true;
+      clearTimeout(fallback);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!fontReady) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const t = setTimeout(() => {
       setGone(true);
       onDone();
     }, reduced ? 900 : DURATION);
     return () => clearTimeout(t);
-  }, [onDone]);
+  }, [fontReady, onDone]);
 
   if (gone) return null;
+
+  // Plain paper cover while we wait — avoids a flash of the app underneath
+  // and keeps this invisible on fast connections (font is ready in ~0ms).
+  if (!fontReady) return <div className="fixed inset-0 z-50 bg-paper" />;
 
   return (
     <div

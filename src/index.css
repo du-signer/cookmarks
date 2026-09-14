@@ -88,29 +88,39 @@ button {
 }
 
 /* ---- Cookmarks splash (append to src/index.css) ---- */
-.cm-splash { animation: cm-shell 3500ms linear 1 both; }
+/*
+ * will-change on every animated layer below is a deliberate mobile-jank
+ * fix: filter+transform animated together (the blur-in wordmark
+ * especially) is expensive to recomposite on weaker mobile GPUs unless
+ * the browser is told up front to promote each element to its own layer.
+ */
+.cm-splash { animation: cm-shell 3500ms linear 1 both; will-change: opacity; }
 
 .cm-splash-glow {
   background: radial-gradient(circle, rgba(209, 169, 74, 0.3), rgba(209, 169, 74, 0) 68%);
   animation: cm-glow 3500ms linear 1 both;
+  will-change: opacity, transform;
 }
 
 .cm-splash-shadow {
   background: linear-gradient(90deg, rgba(43, 37, 33, 0.2), rgba(43, 37, 33, 0));
   animation: cm-ribbon-shadow 3500ms linear 1 both;
+  will-change: opacity;
 }
 
 .cm-splash-ribbon {
   background: #9c4a2f;
   clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%);
   animation: cm-ribbon-drop 3500ms linear 1 both;
+  will-change: transform;
 }
 
-.cm-splash-mark { animation: cm-soft-in 3500ms linear 1 both; }
+.cm-splash-mark { animation: cm-soft-in 3500ms linear 1 both; will-change: opacity, transform, filter; }
 
 .cm-splash-rule {
   background: #9c4a2f;
   animation: cm-hairline 3500ms linear 1 both;
+  will-change: transform;
 }
 
 @keyframes cm-shell {
